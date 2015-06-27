@@ -1,0 +1,10 @@
+[package]
+name = "exodus"
+version = "0.1.0"
+authors = ["Diego Echeverri <diegoeche@gmail.com>"]
+
+[dependencies]
+rand = ">=0.2.0"
+libc = ">=0.1.5"
+bitflags = ">=0.1"
+sfml = "0.9.3"
