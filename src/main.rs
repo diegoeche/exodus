@@ -69,15 +69,10 @@ fn main() {
     let mut frog_sprite3 = create_frog_sprite(100f32, 400f32, 2);
     let mut frog_sprite4 = create_frog_sprite(350f32, 100f32, 3);
 
-    let font = Font::new_from_file("resources/sansation.ttf").unwrap();
-    let mut text = Text::new_init("Test!", &font, 12).unwrap();
-
     let mut terrain = create_terrain();
+    let mut stats = renderables::FrameStats::new();
 
     let mut clock = Clock::new();
-
-    let mut frames = 0;
-    let mut accumulated_time = 0;
 
     while window.is_open() {
         handle_window_events(&mut window);
@@ -86,23 +81,12 @@ fn main() {
         let elapsed = clock.restart().as_milliseconds();
 
         terrain.render(&mut window, elapsed);
-
         frog_sprite1.render(&mut window, elapsed);
         frog_sprite2.render(&mut window, elapsed);
         frog_sprite3.render(&mut window, elapsed);
         frog_sprite4.render(&mut window, elapsed);
+        stats.render(&mut window, elapsed);
 
-        accumulated_time += elapsed;
-        frames += 1;
-
-        if accumulated_time > 1000 {
-            let rate = (frames * 1000) as f32 / accumulated_time as f32;
-            text.set_string(&format!("frames/s: {}", rate));
-            accumulated_time = 0;
-            frames = 0;
-        }
-
-        window.draw(&text);
         window.display();
     }
 }

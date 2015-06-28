@@ -1,8 +1,11 @@
 extern crate sfml;
 
+use std::rc::Rc;
+use std::cell::RefCell;
+
 use sfml::traits::{Drawable};
-use sfml::graphics::{RenderWindow, IntRect, RenderTarget};
-use sfml::graphics::rc::{Sprite};
+use sfml::graphics::{RenderWindow, IntRect, RenderTarget, Font};
+use sfml::graphics::rc::{Sprite, Text};
 
 pub struct Terrain {
     pub sprite: Sprite,
@@ -59,3 +62,40 @@ impl Renderable for AnimatedSprite {
         window.draw(&(self.sprite));
     }
 }
+
+
+pub struct FrameStats {
+    last_measure_at: i32,
+    frames: i32,
+    text: Text,
+}
+
+impl FrameStats {
+    pub fn new() -> FrameStats {
+        let font = Font::new_from_file("resources/sansation.ttf").unwrap();
+        let text = Text::new_init("frames/s: 0.0", Rc::new(RefCell::new(font)), 12).unwrap();
+
+        FrameStats {
+            frames: 0,
+            last_measure_at: 0,
+            text: text
+        }
+    }
+}
+
+impl Renderable for FrameStats {
+    fn render(&mut self, window: &mut RenderWindow, elapsed: i32) {
+        self.last_measure_at += elapsed;
+        self.frames += 1;
+
+        if self.last_measure_at > 1000 {
+            let rate = (self.frames * 1000) as f32 / self.last_measure_at as f32;
+            self.text.set_string(&format!("frames/s: {}", rate));
+            self.last_measure_at = 0;
+            self.frames = 0;
+        }
+
+        window.draw(&self.text);
+    }
+}
+
