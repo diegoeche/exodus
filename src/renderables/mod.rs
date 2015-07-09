@@ -6,6 +6,7 @@ use std::cell::RefCell;
 use sfml::traits::{Drawable};
 use sfml::graphics::{RenderWindow, IntRect, RenderTarget, Font};
 use sfml::graphics::rc::{Sprite, Text};
+use sfml::window::keyboard::Key;
 
 pub struct Terrain {
     pub sprite: Sprite,
@@ -23,10 +24,9 @@ impl Renderable for Terrain {
         let frame = IntRect::new(x_offset, y_offset, self.tile_size, self.tile_size);
         self.sprite.set_texture_rect(&frame);
         let size = window.get_size();
-        let (x, y) = (size.x, size.y);
 
-        let tiles_in_x = ((x / (self.tile_size as u32))) + 1;
-        let tiles_in_y = ((y / (self.tile_size as u32))) + 1;
+        let tiles_in_x = ((size.x / (self.tile_size as u32))) + 1;
+        let tiles_in_y = ((size.y / (self.tile_size as u32))) + 1;
 
         for i in (0..tiles_in_x) {
             for j in (0..tiles_in_y) {
@@ -39,6 +39,7 @@ impl Renderable for Terrain {
     }
 }
 
+#[derive(Clone)]
 pub struct AnimatedSprite {
     pub sprite: Sprite,
     pub offset: (i32, i32),
@@ -59,9 +60,11 @@ impl Renderable for AnimatedSprite {
         let (x,y) = self.position;
         self.sprite.set_position2f(x, y);
         self.sprite.set_texture_rect(&frame);
+
         window.draw(&(self.sprite));
     }
 }
+
 
 
 pub struct FrameStats {
@@ -99,3 +102,66 @@ impl Renderable for FrameStats {
     }
 }
 
+pub enum UnitAction {
+    Idle, Moving
+}
+
+pub struct Unit {
+    up:    AnimatedSprite,
+    down:  AnimatedSprite,
+    left:  AnimatedSprite,
+    right: AnimatedSprite,
+    current_action: UnitAction,
+    direction: Key
+}
+
+impl Renderable for Unit {
+    fn render(&mut self, window: &mut RenderWindow, elapsed: i32) {
+        match self.current_action {
+            UnitAction::Idle => {
+                self.render_moving(window, 0);
+            },
+            UnitAction::Moving => {
+                self.render_moving(window, elapsed);
+            },
+        };
+    }
+}
+
+impl Unit {
+    pub fn new(
+        up:    AnimatedSprite,
+        down:  AnimatedSprite,
+        left:  AnimatedSprite,
+        right: AnimatedSprite
+    ) -> Unit {
+        Unit {
+            up:    up,
+            down:  down,
+            left:  left,
+            right: right,
+            direction: Key::Down,
+            current_action: UnitAction::Idle
+        }
+    }
+
+    pub fn consume_input(&mut self, key: Key) {
+        match key {
+            Key::Up | Key::Down | Key::Left | Key::Right => {
+                self.direction = key;
+                self.current_action = UnitAction::Moving;
+            }
+            _ => {}
+        };
+    }
+
+    fn render_moving(&mut self, window: &mut RenderWindow, elapsed: i32) {
+        match self.direction {
+            Key::Up    => self.up.render(window, elapsed),
+            Key::Down  => self.down.render(window, elapsed),
+            Key::Right => self.right.render(window, elapsed),
+            Key::Left  => self.left.render(window, elapsed),
+            _ => {}
+        }
+    }
+}

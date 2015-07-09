@@ -2,43 +2,57 @@ extern crate sfml;
 
 use std::rc::Rc;
 use std::cell::RefCell;
+use std::collections::HashMap;
+
 use sfml::traits::{Drawable};
 use sfml::graphics::{RenderWindow, Color, Texture, IntRect, RenderTarget, Font, Text};
 use sfml::graphics::rc::{Sprite};
-
-use sfml::window::{VideoMode, ContextSettings, event, WindowStyle};
+use sfml::window::{VideoMode, ContextSettings, WindowStyle};
+use sfml::window::event;
 use sfml::window::keyboard::Key;
-use sfml::system::Clock;
+use sfml::window::mouse::MouseButton;
 
+use sfml::system::Clock;
 mod renderables;
 use renderables::Renderable;
 
-fn create_terrain() -> renderables::Terrain {
-    let terrain_texture: Rc<RefCell<Texture>> =
-        Rc::new(RefCell::new(Texture::new_from_file("resources/terrain_tileset.png").unwrap()));
+struct World {
+    objects: HashMap<(u32, u32), Object>,
+    terrain_sprites: HashMap<(u32, u32), Sprite>,
+    player: renderables::Unit,
+    default_sprite: Sprite,
+    map_size: (u32, u32),
+    tile_size:  u32
+}
 
-    let mut terrain_sprite: Sprite = match Sprite::new() {
-        Some(sprite)  => sprite,
-        None          => panic!("Cannot found resource: image")
-    };
+impl Renderable for World {
+    fn render(&mut self, window: &mut RenderWindow, elapsed: i32) {
+        let (x_size, y_size) = self.map_size;
+        for i in (0..x_size) {
+            for j in (0..y_size) {
+                let new_x = (i * self.tile_size as u32) as f32;
+                let new_y = (j * self.tile_size as u32) as f32;
+                self.default_sprite.set_position2f(new_x, new_y);
+                window.draw(&(self.default_sprite));
 
-    terrain_sprite.set_texture(terrain_texture, false);
-    terrain_sprite.set_position2f(0f32, 0f32);
-
-    renderables::Terrain {
-        sprite: terrain_sprite,
-        offset: (210, 16),
-        tile_size: 30,
+                match self.objects.get(&(i, j)) {
+                    Some(_) => {
+                        self.player.render(window, elapsed);
+                    }
+                    _ => {}
+                }
+            }
+        }
     }
 }
 
-fn create_frog_sprite(x: f32, y: f32, animation_index: i32) -> renderables::AnimatedSprite {
+fn create_frog_sprite(
+    (x, y): (f32, f32),
+    animation_index: i32,
+    texture: Rc<RefCell<Texture>>) -> renderables::AnimatedSprite {
     let mut frog_sprite = Sprite::new().expect("Cannot create a new Sprite");
 
-    let frog_texture: Rc<RefCell<Texture>> =
-        Rc::new(RefCell::new(Texture::new_from_file("resources/3571.png").unwrap()));
-
-    frog_sprite.set_texture(frog_texture, false);
+    frog_sprite.set_texture(texture, false);
 
     renderables::AnimatedSprite {
         sprite: frog_sprite,
@@ -47,12 +61,11 @@ fn create_frog_sprite(x: f32, y: f32, animation_index: i32) -> renderables::Anim
         width: 19,
         height: 30,
         frames: 7,
-        last_frame_at: 0
+        last_frame_at: 0,
     }
 }
 
 fn main() {
-    // Create the window of the application
     let setting: ContextSettings = ContextSettings::default();
     let mut window: RenderWindow = match RenderWindow::new(VideoMode::new_init(800, 600, 32),
         "SFML borrow ressources Example", WindowStyle::Close, &setting) {
@@ -63,48 +76,93 @@ fn main() {
 
     let clear_color = Color::black();
 
-    // Create a Sprite_Texture
-    let mut frog_sprite1 = create_frog_sprite(400f32, 100f32, 0);
-    let mut frog_sprite2 = create_frog_sprite(200f32, 50f32, 1);
-    let mut frog_sprite3 = create_frog_sprite(100f32, 400f32, 2);
-    let mut frog_sprite4 = create_frog_sprite(350f32, 100f32, 3);
+    let frog_texture: Rc<RefCell<Texture>> =
+        Rc::new(RefCell::new(Texture::new_from_file("resources/3571.png").unwrap()));
 
-    let mut terrain = create_terrain();
+
+        let down  = create_frog_sprite((0f32, 0f32), 0, frog_texture.clone());
+        let up    = create_frog_sprite((0f32, 0f32), 1, frog_texture.clone());
+        let left  = create_frog_sprite((0f32, 0f32), 2, frog_texture.clone());
+        let right = create_frog_sprite((0f32, 0f32), 3, frog_texture.clone());
+
+        let mut entity = renderables::Unit::new(
+            up,
+            down,
+            left,
+            right,
+        );
+
+
     let mut stats = renderables::FrameStats::new();
+    let mut objects = HashMap::new();
+    objects.insert((0, 4), Object::Player);
 
+    let terrain_texture: Rc<RefCell<Texture>> =
+        Rc::new(RefCell::new(Texture::new_from_file("resources/54728-none.png").unwrap()));
+
+    let mut grass_sprite: Sprite = Sprite::new().unwrap();
+    grass_sprite.set_texture(terrain_texture, false);
+    let frame = IntRect::new(60, 0, 30, 30);
+    grass_sprite.set_texture_rect(&frame);
+    grass_sprite.set_position2f(100f32, 100f32);
+
+    let mut terrain_sprites = HashMap::new();
+
+    let mut world = World {
+        objects: objects,
+        terrain_sprites: terrain_sprites,
+        player: entity,
+        map_size: (15, 15),
+        tile_size: 30,
+        default_sprite: grass_sprite
+    };
+
+    // let mut terrain = create_terrain();
     let mut clock = Clock::new();
 
     while window.is_open() {
-        handle_window_events(&mut window);
+        handle_window_events(&mut window, &mut world.player);
         window.clear(&clear_color);
 
         let elapsed = clock.restart().as_milliseconds();
 
-        terrain.render(&mut window, elapsed);
-        frog_sprite1.render(&mut window, elapsed);
-        frog_sprite2.render(&mut window, elapsed);
-        frog_sprite3.render(&mut window, elapsed);
-        frog_sprite4.render(&mut window, elapsed);
+        world.render(&mut window, elapsed);
+        // world.player.render(&mut window, elapsed);
+        // window.draw(&(world.grass));
+        // terrain.render(&mut window, elapsed);
         stats.render(&mut window, elapsed);
-
         window.display();
     }
 }
 
-fn handle_window_events(window: &mut RenderWindow) {
+fn handle_window_events(window: &mut RenderWindow, entity: &mut renderables::Unit) {
     for event in window.events() {
         match event {
             event::Closed => window.close(),
+            event::MouseButtonPressed{button, ..} => {
+            },
             event::KeyPressed{code, ..} => match code {
                 Key::Escape => {
                     window.close();
                     break;
                 },
-                _ => {
-                    // Do something!
+                key  => {
+                    entity.consume_input(key);
                 }
             },
             _ => {}
         }
     }
+}
+
+// Voxel Representation
+enum Voxel {
+    // Maybe better "Symmetrical"
+    Empty {
+        id: i32
+    },
+}
+
+enum Object {
+    Player,
 }
